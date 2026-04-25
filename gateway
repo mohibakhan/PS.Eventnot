@@ -1,0 +1,34 @@
+# =============================================================================
+# PaymentServices.Gateway — Azure DevOps Build Pipeline
+# =============================================================================
+name: $(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  - develop
+  - release
+  - master
+
+parameters:
+  - name: FunctionAppName
+    displayName: FunctionAppName
+    type: string
+    default: PaymentServicesGateway
+  - name: buildConfiguration
+    displayName: 'Build Configuration'
+    type: string
+    default: 'Release'
+    values:
+      - 'Release'
+      - 'Debug'
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: "Payments Common Services/Evolve.Digital.DevOps"
+      ref: refs/heads/develop
+
+extends:
+  template: Service_Pipelines/build_services_functionapp.yml@templates
+  parameters:
+    FunctionAppName: PaymentServicesGateway

@@ -1,0 +1,28 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+
+    "APPINSIGHTS_INSTRUMENTATIONKEY": "<local-app-insights-key>",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "<local-app-insights-connection-string>",
+
+    "app:AppSettings:COSMOS_ENDPOINT": "<cosmos-account-endpoint>",
+    "app:AppSettings:COSMOS_CONNSTRING": "<local-cosmos-connection-string>",
+    "app:AppSettings:COSMOS_DATABASE": "tptch",
+    "app:AppSettings:COSMOS_TRANSACTIONS_CONTAINER": "tchSendTransactions",
+
+    "app:AppSettings:SERVICE_BUS_CONNSTRING": "<service-bus-connection-string>",
+    "app:AppSettings:SERVICE_BUS_TOPIC": "payment-processing",
+    "app:AppSettings:SERVICE_BUS_NOTIFICATION_SUBSCRIPTION": "event-notification",
+
+    "app:AppSettings:RTP_SEND_WEBHOOK_URL": "<rtpsend-webhook-url>",
+    "app:AppSettings:RTP_SEND_WEBHOOK_API_KEY": "<rtpsend-api-key>",
+    "app:AppSettings:RTP_SEND_WEBHOOK_API_KEY_HEADER": "x-api-key",
+    "app:AppSettings:RTP_SEND_WEBHOOK_TIMEOUT_SECONDS": "30",
+    "app:AppSettings:RTP_SEND_WEBHOOK_MAX_RETRIES": "3",
+
+    "telemetry:APP_INSIGHTS_CUSTOM_PROP_EVOLVE_TRAIN": "Digital",
+    "telemetry:APP_INSIGHTS_CUSTOM_PROP_EVOLVE_TEAM": "Services"
+  }
+}

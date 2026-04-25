@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionAppName": { "value": "PaymentServicesEventNotification-PROD" },
+    "location": { "value": "eastus" },
+    "appConfigEndpoint": { "value": "https://payment-services-config-prod.azconfig.io" },
+    "managedIdentityClientId": { "value": "<prod-managed-identity-client-id>" },
+    "cosmosEndpoint": { "value": "https://cosmos-paymentservices-prod-centralus.documents.azure.com:443/" },
+    "cosmosDatabase": { "value": "tptch" },
+    "serviceBusTopic": { "value": "payment-processing" },
+    "environment": { "value": "PROD" },
+    "tags": { "value": { "Environment": "PROD", "Service": "PaymentServices.EventNotification", "Team": "Services", "Train": "Digital" } }
+  }
+}

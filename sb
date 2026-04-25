@@ -1,0 +1,8 @@
+state = 'TransferCompleted'
+OR state = 'TransferFailed'
+OR state = 'AccountResolutionFailed'
+OR state = 'KycFailed'
+OR state = 'KycManualReview'
+OR state = 'TmsCompleted'
+OR state = 'TmsComplianceAlert'
+OR state = 'TmsFailed'

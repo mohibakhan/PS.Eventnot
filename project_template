@@ -1,1 +1,94 @@
 
+parameters:
+  - name: FunctionAppName
+    type: string
+
+  - name: ProjectPath
+    type: string
+    default: ''
+
+  - name: DeployParametersPath
+    type: string
+    default: deploy_parameters
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+
+trigger:
+  branches:
+    include:
+      - refs/heads/develop
+      - refs/heads/release
+      - refs/heads/master
+
+resources:
+  repositories:
+    - repository: self
+      type: git
+
+jobs:
+  - job: Phase_1
+    displayName: ${{ parameters.FunctionAppName }}
+    cancelTimeoutInMinutes: 1
+    pool:
+      name: Azure Pipelines
+
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: DotNetCoreCLI@2
+        displayName: Restore
+        inputs:
+          command: restore
+          projects: '$(Build.SourcesDirectory)/${{ parameters.ProjectPath }}/${{ parameters.FunctionAppName }}.csproj'
+          vstsFeed: 'f4243c08-c21f-4dbb-b39b-965d62c22add'
+
+      - task: DotNetCoreCLI@2
+        displayName: Build
+        inputs:
+          command: build
+          projects: '$(Build.SourcesDirectory)/${{ parameters.ProjectPath }}/${{ parameters.FunctionAppName }}.csproj'
+          arguments: '--configuration ${{ parameters.buildConfiguration }}'
+        continueOnError: false
+
+      - task: DotNetCoreCLI@2
+        displayName: Publish Function App
+        inputs:
+          command: publish
+          publishWebProjects: false
+          projects: '$(Build.SourcesDirectory)/${{ parameters.ProjectPath }}/${{ parameters.FunctionAppName }}.csproj'
+          arguments: '--configuration ${{ parameters.buildConfiguration }} --output "$(Build.ArtifactStagingDirectory)/${{ parameters.FunctionAppName }}"'
+          zipAfterPublish: false
+          modifyOutputPath: false
+
+      - task: DotNetCoreCLI@2
+        displayName: Run Unit Tests
+        inputs:
+          command: test
+          projects: '$(Build.SourcesDirectory)/**/*Test*.csproj'
+          arguments: '--configuration ${{ parameters.buildConfiguration }}'
+        continueOnError: true
+
+      - task: CopyFiles@2
+        displayName: Copy Parameter Files
+        inputs:
+          SourceFolder: '$(Build.SourcesDirectory)/${{ parameters.DeployParametersPath }}'
+          TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ parameters.FunctionAppName }}/deploy_parameters'
+        continueOnError: true
+
+      - task: ArchiveFiles@2
+        displayName: Archive Function App
+        inputs:
+          rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/${{ parameters.FunctionAppName }}'
+          includeRootFolder: false
+          archiveType: zip
+          archiveFile: '$(Build.ArtifactStagingDirectory)/${{ parameters.FunctionAppName }}.zip'
+          replaceExistingArchive: true
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: ${{ parameters.FunctionAppName }}'
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)/${{ parameters.FunctionAppName }}.zip'
+          ArtifactName: '${{ parameters.FunctionAppName }}'

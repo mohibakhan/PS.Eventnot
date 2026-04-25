@@ -1,0 +1,66 @@
+parameters:
+- name: FunctionAppName
+  type: string
+trigger:
+  branches:
+    include:
+    - refs/heads/develop
+    - refs/heads/release
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: refs/heads/develop
+jobs:
+- job: Phase_1
+  displayName: ${{ parameters.FunctionAppName }}
+  cancelTimeoutInMinutes: 1
+  pool:
+    name: Azure Pipelines
+  steps:
+  - checkout: self
+    clean: true
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore
+    inputs:
+      command: restore
+      projects: $(Build.SourcesDirectory)/**/${{ parameters.FunctionAppName }}*.csproj
+      vstsFeed: 'f4243c08-c21f-4dbb-b39b-965d62c22add'
+
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      projects: $(Build.SourcesDirectory)/**/${{ parameters.FunctionAppName }}*.csproj
+      arguments: /p:publishurl="$(build.artifactstagingdirectory)\${{ parameters.FunctionAppName }}" /p:DeployOnBuild=true /p:SkipInvalidConfigurations=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem  
+    continueOnError: true
+    
+  - task: DotNetCoreCLI@2
+    displayName: Run Unit Tests
+    inputs:
+      command: test
+      projects: $(Build.SourcesDirectory)/**/**Test*.csproj
+      arguments: '--configuration $(buildConfiguration)'
+
+  - task: CopyFiles@2
+    displayName: Copy Parameterfiles
+    inputs:
+      SourceFolder: '${{ parameters.FunctionAppName }}/deploy_parameters'
+      TargetFolder: '$(build.artifactstagingdirectory)/${{ parameters.FunctionAppName }}\deploy_parameters'  
+    continueOnError: true 
+
+  - task: ArchiveFiles@1
+    name: ZIP_IT
+    displayName: Archive Files
+    inputs:
+      rootFolder: $(build.artifactstagingdirectory)/${{ parameters.FunctionAppName }}
+      includeRootFolder: false
+      archiveFile: $(build.artifactstagingdirectory)/${{ parameters.FunctionAppName }}.zip
+      
+  - task: PublishBuildArtifacts@1
+    name: Publish
+    displayName: 'Publish Artifact: ${{ parameters.FunctionAppName }}'
+    inputs:
+      PathtoPublish: $(build.artifactstagingdirectory)/${{ parameters.FunctionAppName }}.zip
+      ArtifactName: ${{ parameters.FunctionAppName }}
+      TargetPath: '\\$(agent.machinename)\BuildArtifacts\$(Build.DefinitionName)\$(Build.BuildNumber)'

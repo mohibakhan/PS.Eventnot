@@ -12,12 +12,15 @@ using PaymentServices.EventNotification.Services;
 using PaymentServices.Shared.Extensions;
 using Serilog;
 using Serilog.Events;
+using CosmosContainer = Microsoft.Azure.Cosmos.Container;
 
 namespace PaymentServices.EventNotification;
 
 [ExcludeFromCodeCoverage]
 public static class Program
 {
+    private const string Prefix = "eventNotification:AppSettings";
+
     public static async Task Main(string[] args)
     {
         var host = new HostBuilder()
@@ -34,21 +37,22 @@ public static class Program
                 services.ConfigureFunctionsApplicationInsights();
 
                 // Shared infrastructure
-                services.AddPaymentAppSettings(config);
-                services.AddPaymentCosmosClient(config);
+                services.AddPaymentAppSettings(config, Prefix);
+                services.AddPaymentCosmosClient(config, Prefix);
+                services.AddPaymentServiceBusPublisher(config, Prefix);
 
                 // EventNotification settings
                 services.AddOptions<EventNotificationSettings>()
                     .Configure<IConfiguration>((settings, cfg) =>
-                        cfg.GetSection("app:AppSettings").Bind(settings));
+                        cfg.GetSection(Prefix).Bind(settings));
 
                 // Cosmos containers
-                var tptchDb = config["app:AppSettings:COSMOS_DATABASE"] ?? "tptch";
+                var tptchDb = config[$"{Prefix}:COSMOS_DATABASE"] ?? "tptch";
 
-                services.AddKeyedSingleton<Container>("transactions", (sp, _) =>
+                services.AddKeyedSingleton<CosmosContainer>("transactions", (sp, _) =>
                 {
                     var client = sp.GetRequiredService<CosmosClient>();
-                    var container = config["app:AppSettings:COSMOS_TRANSACTIONS_CONTAINER"]
+                    var container = config[$"{Prefix}:COSMOS_TRANSACTIONS_CONTAINER"]
                         ?? "tchSendTransactions";
                     return client.GetContainer(tptchDb, container);
                 });
@@ -99,7 +103,7 @@ public static class Program
             {
                 options
                     .Connect(new Uri(appConfigUrl), credential)
-                    .Select("app:*")
+                    .Select("eventNotification:*")
                     .Select("telemetry:*")
                     .ConfigureKeyVault(kv => kv.SetCredential(credential));
             });

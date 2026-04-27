@@ -1,0 +1,26 @@
+{
+  "telemetry:APP_INSIGHTS-CUSTOM_PROP_EVOLVE_TRAIN": "Digital",
+  "telemetry:APP_INSIGHTS-CUSTOM_PROP_EVOLVE_TEAM": "Services",
+  "eventNotification:AppSettings:COSMOS_DATABASE": "tptch",
+  "eventNotification:AppSettings:COSMOS_TRANSACTIONS_CONTAINER": "tchSendTransactions",
+  "eventNotification:AppSettings:SERVICE_BUS_TOPIC": "payment-processing",
+  "eventNotification:AppSettings:SERVICE_BUS_NOTIFICATION_SUBSCRIPTION": "event-notification",
+  "eventNotification:AppSettings:RTP_SEND_WEBHOOK_API_KEY_HEADER": "x-api-key",
+  "eventNotification:AppSettings:RTP_SEND_WEBHOOK_TIMEOUT_SECONDS": "30",
+  "eventNotification:AppSettings:RTP_SEND_WEBHOOK_MAX_RETRIES": "3"
+}
+
+{
+  "eventNotification:AppSettings:COSMOS_CONNSTRING": {
+    "uri": "https://kv-pmtsvc-dev-centralus.vault.azure.net/secrets/EVTNOTIF-COSMOS-CONNSTRING"
+  },
+  "eventNotification:AppSettings:SERVICE_BUS_CONNSTRING": {
+    "uri": "https://kv-pmtsvc-dev-centralus.vault.azure.net/secrets/EVTNOTIF-SERVICE-BUS-CONNSTRING"
+  },
+  "eventNotification:AppSettings:RTP_SEND_WEBHOOK_URL": {
+    "uri": "https://kv-pmtsvc-dev-centralus.vault.azure.net/secrets/EVTNOTIF-RTP-SEND-WEBHOOK-URL"
+  },
+  "eventNotification:AppSettings:RTP_SEND_WEBHOOK_API_KEY": {
+    "uri": "https://kv-pmtsvc-dev-centralus.vault.azure.net/secrets/EVTNOTIF-RTP-SEND-WEBHOOK-API-KEY"
+  }
+}

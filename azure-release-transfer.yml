@@ -1,0 +1,237 @@
+# =============================================================================
+# PaymentServices.Transfer — Release Pipeline
+# Deploys function app code + pushes config to Azure App Configuration
+#
+# Triggers:
+#   develop branch build → auto deploy to DEV (no approval)
+#   main branch build    → QA (manual approval) → PROD (manual approval)
+# =============================================================================
+name: $(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: build
+      source: PaymentServices.Transfer
+      trigger:
+        branches:
+          include:
+            - develop
+            - main
+
+variables:
+  FunctionAppName: PaymentServices.Transfer
+  ArtifactName: PaymentServices.Transfer
+
+stages:
+
+  # ---------------------------------------------------------------------------
+  # DEV — auto deploys when develop branch build succeeds
+  # ---------------------------------------------------------------------------
+  - stage: ReleaseDEV
+    displayName: 'Release to DEV'
+    condition: eq(variables['resources.pipeline.build.sourceBranch'], 'refs/heads/develop')
+    jobs:
+      - job: DeployTransferDEV
+        displayName: 'Deploy Transfer to DEV'
+        pool:
+          name: Azure Pipelines
+        steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Build Artifact'
+            inputs:
+              buildType: specific
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.build.pipelineID)'
+              buildVersionToDownload: latest
+              artifactName: '$(ArtifactName)'
+              targetPath: '$(Pipeline.Workspace)/$(ArtifactName)'
+
+          - task: ExtractFiles@1
+            displayName: 'Extract Artifact Zip'
+            inputs:
+              archiveFilePatterns: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              destinationFolder: '$(System.DefaultWorkingDirectory)/unzip'
+              cleanDestinationFolder: true
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push Config to App Configuration - DEV'
+            inputs:
+              azureSubscription: 'Dev-Evolve-SvcCon'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-dev-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/DEV/dev_ea_env.parameters.json'
+              Separator: ':'
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push KeyVault Refs to App Configuration - DEV'
+            inputs:
+              azureSubscription: 'Dev-Evolve-SvcCon'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-dev-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/DEV/dev_ea_keyvault.parameters.json'
+              Separator: ':'
+              Depth: 1
+              ContentType: 'application/vnd.microsoft.appconfig.keyvaultref+json;charset=utf-8'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy Transfer Function App - DEV'
+            inputs:
+              connectedServiceNameARM: 'Dev-Evolve-SvcCon'
+              appType: functionApp
+              appName: 'fa-pmtsvc-transfer-dev-centralus'
+              package: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              deploymentMethod: zipDeploy
+              appSettings: '-AZURE_FUNCTIONS_ENVIRONMENT DEV'
+
+  # ---------------------------------------------------------------------------
+  # QA — manual approval then deploy, triggered by main branch build
+  # ---------------------------------------------------------------------------
+  - stage: ReleaseQA
+    displayName: 'Release to QA'
+    dependsOn: []
+    condition: eq(variables['resources.pipeline.build.sourceBranch'], 'refs/heads/main')
+    jobs:
+
+      - job: ApproveQA
+        displayName: 'Approve QA Deployment'
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            displayName: 'Waiting for QA approval'
+            inputs:
+              notifyUsers: |
+                mkhan.dev@getevolved.com
+                perry.dumlao@getevolved.com
+              instructions: 'Please review and approve the Transfer deployment to QA.'
+              onTimeout: reject
+              timeout: 1440
+
+      - job: DeployTransferQA
+        displayName: 'Deploy Transfer to QA'
+        dependsOn: ApproveQA
+        condition: succeeded()
+        pool:
+          name: Azure Pipelines
+        steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Build Artifact'
+            inputs:
+              buildType: specific
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.build.pipelineID)'
+              buildVersionToDownload: latest
+              artifactName: '$(ArtifactName)'
+              targetPath: '$(Pipeline.Workspace)/$(ArtifactName)'
+
+          - task: ExtractFiles@1
+            displayName: 'Extract Artifact Zip'
+            inputs:
+              archiveFilePatterns: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              destinationFolder: '$(System.DefaultWorkingDirectory)/unzip'
+              cleanDestinationFolder: true
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push Config to App Configuration - QA'
+            inputs:
+              azureSubscription: 'QA-Evolve-SvcCon'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-qa-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/QA/qa_ea_env.parameters.json'
+              Separator: ':'
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push KeyVault Refs to App Configuration - QA'
+            inputs:
+              azureSubscription: 'QA-Evolve-SvcCon'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-qa-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/QA/qa_ea_keyvault.parameters.json'
+              Separator: ':'
+              Depth: 1
+              ContentType: 'application/vnd.microsoft.appconfig.keyvaultref+json;charset=utf-8'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy Transfer Function App - QA'
+            inputs:
+              connectedServiceNameARM: 'QA-Evolve-SvcCon'
+              appType: functionApp
+              appName: 'fa-pmtsvc-transfer-qa-centralus'
+              package: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              deploymentMethod: zipDeploy
+              appSettings: '-AZURE_FUNCTIONS_ENVIRONMENT QA'
+
+  # ---------------------------------------------------------------------------
+  # PROD — manual approval then deploy, runs after QA succeeds
+  # ---------------------------------------------------------------------------
+  - stage: ReleasePROD
+    displayName: 'Release to PROD'
+    dependsOn: ReleaseQA
+    condition: and(succeeded(), eq(variables['resources.pipeline.build.sourceBranch'], 'refs/heads/main'))
+    jobs:
+
+      - job: ApprovePROD
+        displayName: 'Approve PROD Deployment'
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            displayName: 'Waiting for PROD approval'
+            inputs:
+              notifyUsers: |
+                mkhan.dev@getevolved.com
+                perry.dumlao@getevolved.com
+              instructions: 'Please review and approve the Transfer deployment to PROD.'
+              onTimeout: reject
+              timeout: 1440
+
+      - job: DeployTransferPROD
+        displayName: 'Deploy Transfer to PROD'
+        dependsOn: ApprovePROD
+        condition: succeeded()
+        pool:
+          name: Azure Pipelines
+        steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Build Artifact'
+            inputs:
+              buildType: specific
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.build.pipelineID)'
+              buildVersionToDownload: latest
+              artifactName: '$(ArtifactName)'
+              targetPath: '$(Pipeline.Workspace)/$(ArtifactName)'
+
+          - task: ExtractFiles@1
+            displayName: 'Extract Artifact Zip'
+            inputs:
+              archiveFilePatterns: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              destinationFolder: '$(System.DefaultWorkingDirectory)/unzip'
+              cleanDestinationFolder: true
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push Config to App Configuration - PROD'
+            inputs:
+              azureSubscription: 'rg-pmtsvc-prod-SvcCon-WI'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-prod-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/PROD/prod_ea_env.parameters.json'
+              Separator: ':'
+
+          - task: AzureAppConfiguration.azure-app-configuration-task-push.custom-build-release-task.AzureAppConfigurationPush@6
+            displayName: 'Push KeyVault Refs to App Configuration - PROD'
+            inputs:
+              azureSubscription: 'rg-pmtsvc-prod-SvcCon-WI'
+              AppConfigurationEndpoint: 'https://appcs-pmtsvc-prod-centralus.azconfig.io'
+              ConfigurationFile: '$(System.DefaultWorkingDirectory)/unzip/deploy_parameters/PROD/prod_ea_keyvault.parameters.json'
+              Separator: ':'
+              Depth: 1
+              ContentType: 'application/vnd.microsoft.appconfig.keyvaultref+json;charset=utf-8'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy Transfer Function App - PROD'
+            inputs:
+              connectedServiceNameARM: 'rg-pmtsvc-prod-SvcCon-WI'
+              appType: functionApp
+              appName: 'fa-pmtsvc-transfer-prod-centralus'
+              package: '$(Pipeline.Workspace)/$(ArtifactName)/$(FunctionAppName).zip'
+              deploymentMethod: zipDeploy
+              appSettings: '-AZURE_FUNCTIONS_ENVIRONMENT PROD'
